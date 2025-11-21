@@ -1,4 +1,4 @@
-from dragon_export_onnx import get_model_input, qwen_path, COMPUTE_DTYPE, onnx_qwen_vit, onnx_qwen_llm, device
+from dragon_export_onnx import get_model_input, qwen_path, COMPUTE_DTYPE, onnx_qwen_vit, onnx_qwen_llm, Qwen3VLVisualModelOpt, onnx_qwen_vlm
 import torch
 from transformers import Qwen3VLForConditionalGeneration, Qwen3VLVisionModel, AutoTokenizer
 from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextRotaryEmbedding, Qwen3VLModel, Qwen3VLTextModel, create_causal_mask
@@ -97,9 +97,8 @@ def check_info(onnx_path, onnx_inputs):
         print(f"{name}: 形状={arr.shape}, 类型={arr.dtype}")
         # assert inputs_info[name] == arr.shape, f"Need input {name} shape == {inputs_info[name]} but got {arr.shape} !!!"
 
+
 def load_onnx_llm(model_input, trt_engine_path):
-
-
     onnx_inputs = {
         # 从 GPU 迁移到 CPU，再转为 NumPy，保持原数据类型
         "position_ids": model_input["position_ids"].cpu().numpy(),  # torch.int64 → np.int64
@@ -130,23 +129,23 @@ def load_onnx_llm(model_input, trt_engine_path):
     return onnx_outputs[0]
 
 
-def load_onnx_vit(model_input, trt_engine_path):
+def load_onnx_vit(inputs, trt_engine_path):
 
-    pixel_values = model_input["pixel_values"]
-    image_grid_thw = model_input["image_grid_thw"]
+    input_ids = inputs["input_ids"].clone()    # shape torch.Size([1, 144])
+    attention_masks = inputs["attention_mask"].clone()    # shape torch.Size([1, 144])
+    pixel_values = inputs["pixel_values"].clone()    # shape torch.Size([512, 1536])
+    image_grid_thw = inputs["image_grid_thw"].clone()    # shape torch.Size([2, 3])
 
 
     onnx_inputs = {
-        # 从 GPU 迁移到 CPU，再转为 NumPy，保持原数据类型
+        "input_ids": input_ids.cpu().numpy(),
+        "attention_masks": attention_masks.cpu().numpy(),
         "pixel_values": pixel_values.cpu().numpy(),  # torch.int64 → np.int64
         "image_grid_thw": image_grid_thw.cpu().numpy(),  # torch.float32 → np.float32
     }
 
-    #
     check_info(trt_engine_path, onnx_inputs)
 
-
-    # 执行推理（output_names 为要获取的输出，若为 None 则返回所有输出）
     session = ort.InferenceSession(
         trt_engine_path,
         providers=["CUDAExecutionProvider"]
@@ -155,15 +154,14 @@ def load_onnx_vit(model_input, trt_engine_path):
 
     input_names = [input.name for input in session.get_inputs()]
     output_names = [output.name for output in session.get_outputs()]
-    print("ONNX模型输入名称:", input_names)
-    print("ONNX模型输出名称:", output_names)
+    print("ONNX inputs name:", input_names)
+    print("ONNX outputs name:", output_names)
 
     onnx_outputs = session.run(
         input_feed=onnx_inputs,
-        output_names=['hidden_states', "deepstack_feature_0", "deepstack_feature_1", "deepstack_feature_2"],
+        output_names=["position_ids", "attention_mask", "inputs_embeds", "visual_pos_masks", "deepstack_visual_embeds"],
     )
-    # onnx_hidden = onnx_outputs
-
+    # print(onnx_outputs)
     return onnx_outputs
 
 
@@ -273,17 +271,143 @@ def compare_llm_model(torch_qwen_llm):
     compare_predictions(origin_outputs, new_outputs)
 
 
+def compare_vit_model(torch_vit, input):
+    torch_vit = torch_vit.to(device)
+    model = Qwen3VLVisualModelOpt(torch_vit.config).to(device)
+    model.load_state_dict(torch_vit.state_dict())
+    model = model.to(device)
+
+    input_ids = input["input_ids"].clone()    # shape torch.Size([1, 144])
+    attention_mask = input["attention_mask"].clone()    # shape torch.Size([1, 144])
+    pixel_values = input["pixel_values"].clone()    # shape torch.Size([512, 1536])
+    image_grid_thw = input["image_grid_thw"].clone()    # shape torch.Size([2, 3])
+
+
+    with torch.no_grad():
+        origin_outputs = torch_vit(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            pixel_values=pixel_values,
+            image_grid_thw=image_grid_thw,
+        )["last_hidden_state"].cpu().numpy()
+
+        new_outputs = model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            pixel_values=pixel_values,
+            image_grid_thw=image_grid_thw,
+        )["last_hidden_state"].cpu().numpy()
+
+        compare_predictions([origin_outputs], [new_outputs])
+
+
+def load_onnx_vlm(inputs, onnx_vit, onnx_llm, onnx_vlm):
+
+    # Vit process
+    input_ids = inputs["input_ids"].clone()    # shape torch.Size([1, 144])
+    attention_masks = inputs["attention_mask"].clone()    # shape torch.Size([1, 144])
+    pixel_values = inputs["pixel_values"].clone()    # shape torch.Size([512, 1536])
+    image_grid_thw = inputs["image_grid_thw"].clone()    # shape torch.Size([2, 3])
+
+    vit_inputs = {
+        "input_ids": input_ids.cpu().numpy(),
+        "attention_masks": attention_masks.cpu().numpy(),
+        "pixel_values": pixel_values.cpu().numpy(),  # torch.int64 → np.int64
+        "image_grid_thw": image_grid_thw.cpu().numpy(),  # torch.float32 → np.float32
+    }
+
+    vit_session = ort.InferenceSession(
+        onnx_vit,
+        providers=["CUDAExecutionProvider"]
+    )
+
+    check_info(onnx_vit, vit_inputs)
+    vit_outputs = vit_session.run(
+        input_feed=vit_inputs,
+        output_names=["position_ids", "attention_mask", "inputs_embeds", "visual_pos_masks", "deepstack_visual_embeds"],
+    )
+
+    # LLM process
+    llm_inputs = {
+        "position_ids": vit_outputs[0],
+        "inputs_embeds": vit_outputs[2],
+        "visual_pos_masks": vit_outputs[3],
+        "deepstack_visual_embeds": vit_outputs[4]
+    }
+
+    llm_session = ort.InferenceSession(
+        onnx_llm,
+        providers=["CUDAExecutionProvider"]
+    )
+    check_info(onnx_llm, llm_inputs)
+
+
+    llm_outputs = llm_session.run(
+        input_feed=llm_inputs,
+        output_names=["hidden_states"],
+    )
+
+    # VLM process
+    vlm_inputs = {
+        "hidden_states": llm_outputs[0],
+    }
+
+    vlm_session = ort.InferenceSession(
+        onnx_vlm,
+        providers=["CUDAExecutionProvider"]
+    )
+    check_info(onnx_vlm, vlm_inputs)
+
+    vlm_outputs = vlm_session.run(
+        input_feed=vlm_inputs,
+        output_names=["logits"],
+    )
+
+
+    return vlm_outputs[0]
+
+
+
+def compare_vlm(inputs, onnx_vit, onnx_llm, onnx_vlm, torch_vlm):
+    input_ids = inputs["input_ids"].clone()    # shape torch.Size([1, 144])
+    attention_masks = inputs["attention_mask"].clone()    # shape torch.Size([1, 144])
+    pixel_values = inputs["pixel_values"].clone()    # shape torch.Size([512, 1536])
+    image_grid_thw = inputs["image_grid_thw"].clone()    # shape torch.Size([2, 3])
+
+    with torch.no_grad():
+        orign_outputs = torch_vlm(
+            input_ids=input_ids,
+            attention_mask=attention_masks,
+            pixel_values=pixel_values,
+            image_grid_thw=image_grid_thw,
+            logits_to_keep=1,
+        )["logits"].cpu().numpy().squeeze(0)
+
+        new_outputs = load_onnx_vlm(inputs, onnx_vit, onnx_llm, onnx_vlm)
+
+        compare_predictions([orign_outputs], [new_outputs])
+
 
 def load_model_onnx():
     model_input = get_model_input(device)
     qwen_model = Qwen3VLForConditionalGeneration.from_pretrained(qwen_path, dtype=COMPUTE_DTYPE, device_map='cpu', attn_implementation="eager")
+    # with torch.no_grad():
+    #     # model_output = qwen_model(**model_input, output_hidden_states=True, use_cache=False, return_dict=True)
+    #     model_output = qwen_model.generate(**model_input, use_cache=False)
+    #     print(model_output)
     # netron.start(onnx_qwen_llm)
 
-    # load_onnx_vit(model_input, onnx_qwen_vit)
     # load_onnx_llm(model_input, onnx_qwen_llm)
     # compare_vit(model_input, onnx_qwen_vit, qwen_model.model.visual)
-    compare_llm(onnx_qwen_llm, qwen_model.model.language_model)
+    # compare_llm(onnx_qwen_llm, qwen_model.model.language_model)
     # compare_llm_model(qwen_model.model.language_model)
+    # compare_vit_model(qwen_model.model, model_input)
+    # load_onnx_vit(model_input, onnx_qwen_vit)
+    load_onnx_vlm(model_input, onnx_qwen_vit, onnx_qwen_llm, onnx_qwen_vlm)
+    # compare_vlm(model_input, onnx_qwen_vit, onnx_qwen_llm, onnx_qwen_vlm, qwen_model)
+
 
 if __name__ == "__main__":
+    device = 'cpu'
+
     load_model_onnx()
