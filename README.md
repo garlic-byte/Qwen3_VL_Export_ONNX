@@ -11,6 +11,7 @@ This repository provides the ONNX-converted version of the **qwen3-vl-2b** multi
 
 ## Inference Example
 ### Input
+![Image](demo_data/input1.jpg)
 - **Version**: Single RGB image (224×224) of a lemon.
 - **Language**: Describe this image.
 
