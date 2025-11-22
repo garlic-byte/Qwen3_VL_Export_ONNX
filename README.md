@@ -56,10 +56,10 @@ python inference_onnx.py
 
 ## Performance
 - Will be supplemented.
-- **Latency**: 
+- **Latency**: Torch speed time:  44.45977499499713 (s), ONNX speed time:  26.78444771100112 (s), using qwen's forward and ONNX inference for a thousand times.
 - **Accuracy**: 
 - **Memory Usage**:
-- 
+
 
 ## License
 The model is licensed under the same license as the original qwen3-vl-2b (see [Qwen Official Repository](https://github.com/QwenLM/Qwen) for details).
