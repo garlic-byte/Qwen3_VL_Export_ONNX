@@ -15,10 +15,10 @@ class ArgsConfig:
     """Configuration for Qwen3-VL model export ONNX"""
 
     # Model parameters
-    qwen_path: str = 'weights/qwen3-vl-2b'
+    qwen_path: str = '/home/wsj/Desktop/data/Downloads/weights/qwen3-vl-2b'
     """Path to the qwen directory or directories"""
 
-    onnx_path: str = 'onnx_qwen3_vl'
+    onnx_path: str = '/home/wsj/Desktop/code/github/Isaac-GR00T/deployment_scripts/my_deploy/qwen3_vl'
     """Directory to save onnx model checkpoints."""
 
     batch_size: int = 1
@@ -26,6 +26,9 @@ class ArgsConfig:
 
     imgs_nums: int = 1
     """Number of images for ONNX model inference"""
+
+    dtype: str = 'fp16'
+    """Data type of ONNX model: 'fp16' or 'fp32' """
 
 
 class Qwen3VLTextModelOpt(Qwen3VLTextModel):
@@ -239,6 +242,9 @@ def export_qwen_llm(qwen_model, inputs, onnx_path, config):
     # qwen_model.config._attn_implementation = "eager"
     # Create Text Model
     model = Qwen3VLTextModelOpt(qwen_model.config).to(config.device)
+    if config.dtype == "fp16":
+        model.half()
+
     model.load_state_dict(qwen_model.state_dict())
     model.eval()
 
@@ -248,12 +254,12 @@ def export_qwen_llm(qwen_model, inputs, onnx_path, config):
     deepstack_visual_len = 3
 
     position_ids = torch.ones((3, batch_size, seq_len), dtype=torch.int64).to(config.device) # torch.Size([3, 1, 144])
-    inputs_embeds = torch.zeros((batch_size, seq_len, 2048), dtype=torch.float32).to(config.device) # torch.Size([1, 144, 2048])
+    inputs_embeds = torch.zeros((batch_size, seq_len, 2048), dtype=torch.float16 if config.dtype == "fp16" else torch.float32).to(config.device) # torch.Size([1, 144, 2048])
 
     visual_pos_masks = torch.rand(batch_size, seq_len) > 0.5
     x = visual_pos_masks.sum().item()
     visual_pos_masks = visual_pos_masks.to(config.device) # torch.Size([1, 144])
-    deepstack_visual_embeds = torch.randn((deepstack_visual_len, x, 2048), dtype=torch.float32).to(config.device) # torch.Size([3, 67, 2048])
+    deepstack_visual_embeds = torch.randn((deepstack_visual_len, x, 2048), dtype=torch.float16 if config.dtype == "fp16" else torch.float32).to(config.device) # torch.Size([3, 67, 2048])
     attention_mask = torch.ones((batch_size, seq_len), dtype=torch.int64).to(config.device) # mask allways be one, so discard it
 
     torch.onnx.export(
@@ -291,13 +297,15 @@ def export_qwen_vit(
     os.makedirs(dir_path)
 
     model = Qwen3VLVisualModelOpt(qwen_model.config, config).to(config.device)
+    if config.dtype == "fp16":
+        model.half()
     model.load_state_dict(qwen_model.state_dict())
     model = model.to(config.device)
     model.eval()
 
     input_ids = inputs["input_ids"].clone()    # shape torch.Size([1, 144])
     attention_masks = inputs["attention_mask"].clone()    # shape torch.Size([1, 144])
-    pixel_values = inputs["pixel_values"].clone()    # shape torch.Size([512, 1536])
+    pixel_values = inputs["pixel_values"].clone().to(dtype=torch.float16 if config.dtype=="fp16" else torch.float32)    # shape torch.Size([512, 1536])
     image_grid_thw = inputs["image_grid_thw"].clone()    # shape torch.Size([2, 3])
 
 
@@ -328,12 +336,15 @@ def export_qwen_vlm(qwen_model, inputs, onnx_path, config):
     os.makedirs(dir_path)
 
     model = Qwen3VLForConditionalGenerationOpt(qwen_model.config)
+    if config.dtype == "fp16":
+        model.half()
+
     model.load_state_dict(qwen_model.state_dict())
     model = model.to(config.device)
 
     input_ids = inputs["input_ids"]
     batch_size, seq_len = input_ids.shape
-    hidden_states = torch.randn((batch_size, seq_len, 2048), dtype=torch.float32).to(config.device)
+    hidden_states = torch.randn((batch_size, seq_len, 2048), dtype=torch.float16 if config.dtype=="fp16" else torch.float32).to(config.device)
     torch.onnx.export(
         model,
         (hidden_states,),
@@ -361,7 +372,8 @@ def run_export(config):
     print("Init model load done!")
     # with torch.no_grad():
     #     model_output = qwen_model(**model_input, output_hidden_states=True, use_cache=False, return_dict=True)
-
+    print("Export ONNX model type: ", config.dtype)
+    config.onnx_path += "_" + config.dtype
     export_qwen_llm(
         qwen_model=qwen_model.model.language_model,
         inputs=model_input,
@@ -391,7 +403,7 @@ def get_model_input(config):
             "content": [
                 {
                     "type": "image",
-                    "image": "input1.png",
+                    "image": "/home/wsj/Desktop/data/Downloads/weights/test_weigths_code/input1.png",
                 },
                 {"type": "text", "text": "Describe this image."},
             ],
