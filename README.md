@@ -58,12 +58,12 @@ python inference_onnx.py
 ## Performance Benchmark
 | **Metric** | **Type** | **Value** |
 |------------|----------|-----------|
-| **Latency (1000 runs, s)** | Torch (fp32) | 44.46 |
-| | ONNX (fp32) | 26.78 |
-| | ONNX (fp16) | 18.13 |
-| **Generation Speed** | Qwen3-vl (tokens/sec) | 19.378385 <br>*(Tokens generated: 1103)* |
-| | ONNX (tokens/sec) | 38.667467 <br>*(Tokens generated: 1062)* |
-| | TensorRT (tokens/sec) | 66.579019 <br>*(Tokens generated: 842)* |
+| **Latency (1000 runs)** | Torch (fp32) | 44.46 (sec) |
+| | ONNX (fp32) | 26.78 (sec) |
+| | ONNX (fp16) | 18.13 (sec) |
+| **Generation Speed (10 runs, fp16)** | Qwen3-vl | 19.378385 (tokens/sec) <br>*(Tokens generated: 1103)* |
+| | ONNX (tokens/sec) | 38.667467 (tokens/sec) <br>*(Tokens generated: 1062)* |
+| | TensorRT (tokens/sec) | 66.579019 (tokens/sec) <br>*(Tokens generated: 842)* |
 
 
 
