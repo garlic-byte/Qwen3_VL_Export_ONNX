@@ -12,7 +12,7 @@ class ArgsConfig:
     """Configuration for Qwen3-VL model export ONNX"""
 
     # Model parameters
-    qwen_path: str = 'weights/qwen3-vl-2b'
+    qwen_path: str = '/home/wsj/Desktop/data/Downloads/weights/qwen3-vl-2b'
     """Path to the qwen directory or directories"""
 
     onnx_path: str = 'qwen3_vl'

@@ -13,13 +13,13 @@ from dataclasses import dataclass, field
 class ArgsConfig:
     """Configuration for Qwen3-VL model export ONNX"""
 
-    qwen_path: str = 'weights/qwen3-vl-2b'
+    qwen_path: str = '/home/wsj/Desktop/data/Downloads/weights/qwen3-vl-2b'
     """Path to the qwen directory or directories"""
 
     onnx_path: str = 'qwen3_vl'
     """Directory to save onnx model checkpoints."""
 
-    inference_mode: Literal["pytorch", "onnx", "compare"] = "onnx"
+    inference_mode: Literal["pytorch", "onnx", "compare"] = "pytorch"
     """Which inference mode to use"""
 
     dtype: str = 'fp16'
@@ -275,7 +275,7 @@ def chat_inputs(processor, mode):
             "content": [
                 {
                     "type": "image",
-                    "image": "demo_data/input1.png",
+                    "image": "/home/wsj/Desktop/data/Downloads/weights/test_weigths_code/input1.png",
                 },
                 {"type": "text", "text": "Describe this image."},
             ],
