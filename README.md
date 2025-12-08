@@ -38,14 +38,16 @@ This image shows a single, yellow, spherical object that appears to be a small, 
 hf download Qwen/Qwen3-VL-2B-Instruct
 ```
 
-### 2. Conert Torch to ONNX
+### 2. Conert Torch to ONNX and Test Inference
 ```bash
 python qwen3_vl_export_onnx.py
+python inference_onnx.py
 ```
 
-### 3. Run Inference with ONNX Runtime
+### 3. Conert ONNX to TensorRT and Test Inference
 ```bash
-python inference_onnx.py
+bash build_engine.sh
+python inference_trt.py
 ```
 
 ## Model Conversion Notes
