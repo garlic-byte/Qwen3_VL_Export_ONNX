@@ -63,6 +63,7 @@ python inference_trt.py
 | **Latency (1000 runs)** | Torch (fp32) | 44.46 (sec) |
 | | ONNX (fp32) | 26.78 (sec) |
 | | ONNX (fp16) | 18.13 (sec) |
+| | TensorRT (fp16) | 13.77 (sec) |
 | **Generation Speed (10 runs, fp16)** | Qwen3-vl | 19.378385 (tokens/sec) <br>*(Tokens generated: 1103)* |
 | | ONNX (tokens/sec) | 38.667467 (tokens/sec) <br>*(Tokens generated: 1062)* |
 | | TensorRT (tokens/sec) | 66.579019 (tokens/sec) <br>*(Tokens generated: 842)* |
