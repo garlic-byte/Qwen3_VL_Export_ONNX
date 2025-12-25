@@ -1,7 +1,8 @@
-# qwen3-vl-2b-ONNX: Image-to-Text Inference Model
+# qwen3-vl-ONNX-TensorRT: Image-to-Text Inference Model
+
 
 ## Overview
-This repository provides the ONNX-converted version of the **qwen3-vl-2b** multimodal model, optimized for efficient image-to-text generation. The model supports inference on single images with a fixed input resolution of 224×224 and outputs descriptive text based on visual content.
+This repository provides the ONNX-converted version of the **qwen3-vl** multimodal model, optimized for efficient image-to-text generation. The model supports inference on single images with a fixed input resolution of 224×224 and outputs descriptive text based on visual content. Tested 2b and 4b, theoretically supporting all VLMs for Qwen3-VL.
 
 ## Key Features
 - **Model Type**: ONNX-exported multimodal large language model (vision-language)
@@ -26,16 +27,17 @@ This image shows a single, yellow, spherical object that appears to be a small, 
 
 ## Next task
 - Adapt images of different sizes
-- Comparison of Test Torch and ONNX inference Speed
-- Convert ONNX to TensorRT to further improve inference speed
+- ✅ Comparison of Test Torch and ONNX inference Speed
+- ✅ Convert ONNX to TensorRT to further improve inference speed
 - Convert more models from Torch to ONNX
+- Using cache for extreme inference speed
 
 
 ## Usage
 ### 1. Download Qwen3-VL
 ```bash
 # Download the model
-hf download Qwen/Qwen3-VL-2B-Instruct
+hf download Qwen/Qwen3-VL-2B-Instruct --local-dir=.
 ```
 
 ### 2. Conert Torch to ONNX
@@ -49,10 +51,10 @@ python inference_onnx.py
 ```
 
 ## Model Conversion Notes
-- The ONNX model is exported from the original PyTorch implementation of qwen3-vl-2b.
+- The ONNX model is exported from the original PyTorch implementation of qwen3-vl.
 - Input resolution is fixed at 224×224 (consistent with the model's training configuration).
 - For optimal performance, use ONNX Runtime with GPU acceleration (install `onnxruntime-gpu` instead of `onnxruntime`).
-- The model retains the original qwen3-vl-2b's visual understanding and text generation capabilities.
+- The model retains the original qwen3-vl's visual understanding and text generation capabilities.
 
 ## Performance
 - Will be supplemented.
