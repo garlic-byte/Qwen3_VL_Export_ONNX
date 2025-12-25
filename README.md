@@ -60,13 +60,18 @@ python inference_onnx.py
 - Will be supplemented.
 - **Latency**: Using qwen's forward and ONNX inference for a thousand times:
   
-  Torch(fp32) speed time:  44.46 (s), ONNX (fp32) speed time:  26.78 (s), ONNX (fp16) speed time:  18.13 (s), 
+  Torch(fp32) speed time:  44.46 (s)
+
+  ONNX (fp32) speed time:  26.78 (s)
+
+  ONNX (fp16) speed time:  18.13 (s), 
 - **Speed**:
-Qwen3-vl Generated tokens nums:1103, speed:  19.378385 tokens/sec
+  
+  Qwen3-vl Generated tokens nums:1103, speed:  19.378385 tokens/sec
 
-ONNX Generated tokens nums:1062, speed:  38.667467 tokens/sec
+  ONNX Generated tokens nums:1062, speed:  38.667467 tokens/sec
 
-Tensorrt Generated tokens nums:842, speed:  66.579019 tokens/sec
+  Tensorrt Generated tokens nums:842, speed:  66.579019 tokens/sec
 
 - **Accuracy**: 
 - **Memory Usage**:
